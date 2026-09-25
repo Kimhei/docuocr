@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DocuOCR Enterprise AI Pro ✍️</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+.tab-active { background:#0369a1; color:#fff; }
+pre.ocr-out { white-space:pre-wrap; word-break:break-word; }
+</style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen">
+<div class="max-w-4xl mx-auto py-10 px-4">
+
+  <div class="bg-gradient-to-r from-sky-700 via-indigo-800 to-slate-900 rounded-2xl p-6 text-white shadow-xl mb-6">
+    <div class="flex justify-between items-center flex-wrap gap-2">
+      <h1 class="text-2xl font-bold">DocuOCR Enterprise AI Pro ✍️</h1>
+      <span class="bg-emerald-400 text-slate-950 text-xs font-black px-3 py-1 rounded-full uppercase">ARM64 · 2GB RAM Tuned</span>
+    </div>
+    <p class="text-slate-300 text-sm mt-2">PP-OCRv6 + 手寫 v3 雙引擎 · Qwen2.5-0.5B 可選潤飾 · 在線反饋字典</p>
+  </div>
+
+  <!-- Tabs -->
+  <div class="flex gap-2 mb-4">
+    <button id="tabPdf" class="tab-active px-4 py-2 rounded-xl text-sm font-bold shadow-sm border border-slate-200">📄 PDF 轉雙層</button>
+    <button id="tabImg" class="px-4 py-2 rounded-xl text-sm font-bold shadow-sm border border-slate-200 bg-white">🖼️ 單張圖片辨識</button>
+  </div>
+
+  <!-- PDF panel -->
+  <div id="panelPdf" class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 md:p-8">
+    <form id="ocrForm" class="space-y-6">
+      <div id="dropzone" class="border-2 border-dashed border-slate-300 rounded-xl p-8 text-center hover:border-sky-500 cursor-pointer transition">
+        <p class="text-sm font-semibold text-slate-700" id="fileName">點擊或拖放 PDF 文件至此處</p>
+        <p class="text-xs text-slate-400 mt-1">支援繁中、廣東話、中英數混雜與手寫簽名</p>
+        <input type="file" id="fileInput" name="file" accept=".pdf" class="hidden">
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">渲染解析度</label>
+          <select id="dpi" name="dpi" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-sm">
+            <option value="150">150 DPI（極速）</option>
+            <option value="200" selected>200 DPI（ARM 推薦）</option>
+            <option value="300">300 DPI（手寫最清）</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">手寫門檻</label>
+          <input type="number" name="handwriting_threshold" step="0.01" value="0.82" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-sm">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">頁數範圍</label>
+          <input type="text" name="page_range" placeholder="例如：1-3（留空為全部）" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-sm">
+        </div>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <label class="flex items-center gap-2 p-3 bg-slate-50 border border-slate-200 rounded-xl cursor-pointer">
+          <input type="checkbox" id="skip_native_text" name="skip_native_text" value="true" checked class="w-4 h-4 text-sky-600 rounded">
+          <span class="text-xs font-semibold text-slate-700">⚡ 旁路跳過原生文字頁（慳 80% 算力）</span>
+        </label>
+        <label class="flex items-center gap-2 p-3 bg-indigo-50 border border-indigo-200 rounded-xl cursor-pointer">
+          <input type="checkbox" id="enable_slm" name="enable_slm" value="true" class="w-4 h-4 text-indigo-600 rounded">
+          <span class="text-xs font-semibold text-indigo-900">🧠 Qwen2.5-0.5B 語境潤飾（需另行啟用）</span>
+        </label>
+      </div>
+      <button type="submit" id="submitBtn" class="w-full bg-sky-600 hover:bg-sky-700 text-white font-bold py-3.5 rounded-xl shadow-md transition">🚀 開始 AI 雙層高精度轉換</button>
+    </form>
+    <div id="loading" class="hidden mt-6 text-center py-6">
+      <div class="inline-block animate-spin rounded-full h-8 w-8 border-4 border-sky-600 border-t-transparent mb-2"></div>
+      <p class="text-sm font-medium text-slate-600" id="loadingText">正在執行自適應增強與雙模型推論…</p>
+      <p class="text-xs text-slate-400 mt-1">首次使用需載入模型（約 10–30 秒），請稍候</p>
+    </div>
+    <div id="resultBox" class="hidden mt-6 p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between flex-wrap gap-3">
+      <div>
+        <p class="text-sm font-bold text-emerald-900">🎉 轉換成功！</p>
+        <p class="text-xs text-emerald-700">可搜尋雙層 PDF 已生成，支援繁體、廣東話及英文全文檢索。</p>
+      </div>
+      <a id="downloadLink" href="#" download class="bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold py-2.5 px-5 rounded-lg shadow">⬇️ 下載 PDF</a>
+    </div>
+  </div>
+
+  <!-- Image panel -->
+  <div id="panelImg" class="hidden bg-white rounded-2xl shadow-sm border border-slate-200 p-6 md:p-8">
+    <form id="imgForm" class="space-y-6">
+      <div id="imgDropzone" class="border-2 border-dashed border-slate-300 rounded-xl p-8 text-center hover:border-sky-500 cursor-pointer transition">
+        <p class="text-sm font-semibold text-slate-700" id="imgFileName">點擊或拖放圖片至此處（png / jpg / webp）</p>
+        <input type="file" id="imgInput" name="file" accept="image/*" class="hidden">
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">手寫門檻</label>
+          <input type="number" name="handwriting_threshold" step="0.01" value="0.82" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-sm">
+        </div>
+        <label class="flex items-center gap-2 p-3 bg-indigo-50 border border-indigo-200 rounded-xl cursor-pointer">
+          <input type="checkbox" name="enable_slm" value="true" class="w-4 h-4 text-indigo-600 rounded">
+          <span class="text-xs font-semibold text-indigo-900">🧠 Qwen2.5-0.5B 語境潤飾</span>
+        </label>
+      </div>
+      <button type="submit" id="imgSubmitBtn" class="w-full bg-sky-600 hover:bg-sky-700 text-white font-bold py-3.5 rounded-xl shadow-md transition">🔍 開始辨識</button>
+    </form>
+    <div id="imgLoading" class="hidden mt-6 text-center py-6">
+      <div class="inline-block animate-spin rounded-full h-8 w-8 border-4 border-sky-600 border-t-transparent mb-2"></div>
+      <p class="text-sm font-medium text-slate-600">辨識中…</p>
+    </div>
+    <div id="imgResult" class="hidden mt-6">
+      <div class="flex items-center justify-between mb-2">
+        <p class="text-sm font-bold text-slate-800" id="imgMeta"></p>
+        <button id="copyBtn" class="text-xs font-bold bg-slate-800 text-white px-3 py-1.5 rounded-lg">📋 複製文字</button>
+      </div>
+      <pre id="imgText" class="ocr-out text-sm bg-slate-50 border border-slate-200 rounded-xl p-4 max-h-96 overflow-auto"></pre>
+    </div>
+  </div>
+
+  <!-- Feedback -->
+  <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 md:p-8 mt-6">
+    <h3 class="text-sm font-bold text-slate-800">💡 人類回饋與在線字典學習</h3>
+    <p class="text-xs text-slate-500 mb-3">發現專有詞彙認錯（如公司名、人名），提交後系統即時永久記憶：</p>
+    <div class="flex gap-2 flex-wrap">
+      <input type="text" id="wrongTerm" placeholder="識別錯字（例如：有限公詞）" class="flex-1 min-w-[140px] bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs">
+      <input type="text" id="correctTerm" placeholder="正確字詞（例如：有限公司）" class="flex-1 min-w-[140px] bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs">
+      <button id="feedbackBtn" type="button" class="bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold px-4 rounded-lg">學習並更新</button>
+    </div>
+    <p id="feedbackMsg" class="text-xs font-medium text-emerald-600 mt-2 hidden"></p>
+  </div>
+</div>
+
+<script>
+// Tabs
+const tabPdf = document.getElementById('tabPdf'), tabImg = document.getElementById('tabImg');
+const panelPdf = document.getElementById('panelPdf'), panelImg = document.getElementById('panelImg');
+function showTab(pdf) {
+  panelPdf.classList.toggle('hidden', !pdf); panelImg.classList.toggle('hidden', pdf);
+  tabPdf.classList.toggle('tab-active', pdf); tabImg.classList.toggle('tab-active', !pdf);
+}
+tabPdf.onclick = () => showTab(true); tabImg.onclick = () => showTab(false);
+
+// PDF form
+const dropzone = document.getElementById('dropzone'), fileInput = document.getElementById('fileInput');
+const fileName = document.getElementById('fileName'), ocrForm = document.getElementById('ocrForm');
+const submitBtn = document.getElementById('submitBtn'), loading = document.getElementById('loading');
+const resultBox = document.getElementById('resultBox'), downloadLink = document.getElementById('downloadLink');
+dropzone.onclick = () => fileInput.click();
+fileInput.onchange = () => { if (fileInput.files.length) fileName.innerText = fileInput.files[0].name; };
+ocrForm.onsubmit = async (e) => {
+  e.preventDefault();
+  if (!fileInput.files.length) { alert('請選擇 PDF 檔案！'); return; }
+  const fd = new FormData(ocrForm);
+  if (!document.getElementById('skip_native_text').checked) fd.set('skip_native_text', 'false');
+  if (!document.getElementById('enable_slm').checked) fd.set('enable_slm', 'false');
+  submitBtn.disabled = true; loading.classList.remove('hidden'); resultBox.classList.add('hidden');
+  try {
+    const res = await fetch('/api/v1/ocr/pdf', { method: 'POST', body: fd });
+    if (!res.ok) throw new Error((await res.json()).detail || '轉換失敗');
+    const blob = await res.blob();
+    downloadLink.href = URL.createObjectURL(blob);
+    downloadLink.download = 'Searchable_' + fileInput.files[0].name;
+    resultBox.classList.remove('hidden');
+  } catch (err) { alert('錯誤：' + err.message); }
+  finally { submitBtn.disabled = false; loading.classList.add('hidden'); }
+};
+
+// Image form
+const imgDropzone = document.getElementById('imgDropzone'), imgInput = document.getElementById('imgInput');
+const imgFileName = document.getElementById('imgFileName'), imgForm = document.getElementById('imgForm');
+const imgSubmitBtn = document.getElementById('imgSubmitBtn'), imgLoading = document.getElementById('imgLoading');
+const imgResult = document.getElementById('imgResult'), imgText = document.getElementById('imgText');
+imgDropzone.onclick = () => imgInput.click();
+imgInput.onchange = () => { if (imgInput.files.length) imgFileName.innerText = imgInput.files[0].name; };
+imgForm.onsubmit = async (e) => {
+  e.preventDefault();
+  if (!imgInput.files.length) { alert('請選擇圖片！'); return; }
+  const fd = new FormData(imgForm);
+  if (!imgForm.querySelector('[name=enable_slm]').checked) fd.set('enable_slm', 'false');
+  imgSubmitBtn.disabled = true; imgLoading.classList.remove('hidden'); imgResult.classList.add('hidden');
+  try {
+    const res = await fetch('/api/v1/ocr/image', { method: 'POST', body: fd });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || '辨識失敗');
+    document.getElementById('imgMeta').innerText =
+      `共 ${data.line_count} 行 · 平均信心分數 ${(data.avg_score * 100).toFixed(1)}%`;
+    imgText.innerText = data.lines.map(l => l.text).join('\n');
+    imgResult.classList.remove('hidden');
+  } catch (err) { alert('錯誤：' + err.message); }
+  finally { imgSubmitBtn.disabled = false; imgLoading.classList.add('hidden'); }
+};
+document.getElementById('copyBtn').onclick = async () => {
+  await navigator.clipboard.writeText(imgText.innerText);
+  alert('已複製！');
+};
+
+// Feedback
+document.getElementById('feedbackBtn').onclick = async () => {
+  const wrong = document.getElementById('wrongTerm').value.trim();
+  const correct = document.getElementById('correctTerm').value.trim();
+  if (!wrong || !correct) { alert('請完整填寫錯字與正字！'); return; }
+  const res = await fetch('/api/v1/feedback', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ wrong_text: wrong, correct_text: correct })
+  });
+  const data = await res.json();
+  if (res.ok) {
+    const msg = document.getElementById('feedbackMsg');
+    msg.innerText = '✅ ' + data.message; msg.classList.remove('hidden');
+    document.getElementById('wrongTerm').value = ''; document.getElementById('correctTerm').value = '';
+    setTimeout(() => msg.classList.add('hidden'), 4000);
+  } else alert('失敗：' + (data.detail || '未知錯誤'));
+};
+</script>
+</body>
+</html>

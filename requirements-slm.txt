@@ -1,0 +1,12 @@
+# 可選模組：Qwen2.5-0.5B 語境潤飾（llama-cpp-python）
+#
+# ⚠️ 注意：PyPI 冇 llama-cpp-python 嘅 aarch64 預編譯 wheel，
+#    喺 ARM 機上安裝會由源碼編譯 ggml，需時約 20–40 分鐘，屬正常現象。
+#
+# 安裝步驟（喺 Dockerfile 建置階段或容器內執行）：
+#   1. apt-get update && apt-get install -y build-essential cmake
+#   2. CMAKE_ARGS="-DGGML_NATIVE=ON" pip install --no-cache-dir -r requirements-slm.txt
+#
+# 裝好之後，將 docker-compose.yml 嘅 ENABLE_SLM=1、SKIP_SLM_DOWNLOAD=0，
+# 服務啟動時會自動下載 qwen2.5-0.5b-instruct-q4_k_m.gguf（約 400MB）。
+llama-cpp-python>=0.2.80

@@ -1,0 +1,12 @@
+# DocuOCR Enterprise — ARM64 + 2GB RAM 特化版
+# 全部依賴均有 aarch64 (ARM64) 預編譯 wheel，Docker build 唔使編譯，幾分鐘搞掂。
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+PyMuPDF>=1.24.0
+rapidocr_onnxruntime>=1.3.24
+opencc-python-reimplemented>=0.1.8
+Pillow>=10.4.0
+opencv-python-headless>=4.10.0.84
+python-multipart>=0.0.9
+numpy>=1.24.0,<2.0.0
+symspellpy>=6.7.7

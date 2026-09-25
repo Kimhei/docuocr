@@ -1,0 +1,48 @@
+# DocuOCR Enterprise — ARM64 NAS（Synology Container Manager / Docker）用
+# 用法：將此檔連同專案一齊放喺 NAS，喺該目錄執行 `docker compose up -d --build`
+services:
+  docuocr:
+    # ── 方法一：NAS 本機建置（慢，約 10–20 分鐘）──
+    build: .
+    image: docuocr-enterprise:arm64-2gb
+    # ── 方法二（推薦）：pull GitHub Actions 預建嘅 ARM64 鏡像，唔使 build ──
+    # 1. 註釋掉上面嘅 `build: .` 嗰一行
+    # 2. 將下面一行解開，<你的GitHub用戶名> 換成你自己：
+    # image: ghcr.io/<你的GitHub用戶名>/docuocr-enterprise:latest
+    # 3. 執行：docker compose pull && docker compose up -d
+    container_name: docuocr-enterprise
+    # platform: linux/arm64   # 如在 x86 電腦上幫 NAS build ARM 鏡像，先解開此行
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./models:/app/models      # 模型權重（自動下載，約 200MB；開 SLM 另加 400MB）
+      - ./lexicons:/app/lexicons  # 字典（可在 NAS 直接改，即時生效）
+    environment:
+      - TZ=Asia/Hong_Kong
+      - MAX_CONCURRENT_JOBS=1   # 2GB 機強烈建議保持 1，唔好改大
+      - ENABLE_SLM=0            # 預設關；裝好 llama-cpp 並下載 GGUF 後先轉 1
+      - SKIP_SLM_DOWNLOAD=1     # 預設唔下載 400MB GGUF；要開 SLM 先轉 0
+      - OCR_INTRA_THREADS=2
+      - OCR_INTER_THREADS=1
+      # ── 手寫微調（如文件以手寫為主，可解開/調整）──
+      # - DET_BOX_THRESH=0.4     # 檢測閾值調低，捉埋偏淡嘅手寫筆畫（預設 0.5）
+      # - DET_UNCLIP_RATIO=2.0   # 檢測框放大，包埋筆畫邊緣（預設 1.6）
+      # 手寫擂台閾值係每次 request 嘅參數（預設 0.85）；手寫文件可傳 1.0 令每行都打擂台
+      # ── 效能微調（2 核 + 2GB 專用）──
+      # - OCR_PROFILE=fast       # 極速模式：v5 mobile 模型，檢測快幾倍、RAM 更低；
+                                 # 代價係手寫/細字準確率下降，純印刷體先好用（預設 quality）
+      # - DET_LIMIT_SIDE_LEN=736 # 檢測輸入邊長調細，加速約 40%，但可能漏細字（預設 960）
+      # - PREWARM_ON_STARTUP=1   # 開機後背景預載模型，第一次 request 唔使等約 30 秒
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2048M
+        reservations:
+          memory: 300M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    restart: unless-stopped
