@@ -1,0 +1,97 @@
+# 自動為 ARM64 NAS（Synology 等）建置 DocuOCR 鏡像並推送到 GHCR。
+# NAS 端直接 `docker compose pull` 即用，全程唔使喺部慢速 ARM 機上 build / 編譯。
+#
+# 產出標籤（以 GitHub 用戶名 octocat 為例）：
+#   ghcr.io/octocat/docuocr-enterprise:latest      ← 基礎版（預設，NAS 用呢個）
+#   ghcr.io/octocat/docuocr-enterprise:slm         ← 連 llama-cpp（Qwen2.5-0.5B 已編譯好）
+#   ghcr.io/octocat/docuocr-enterprise:base-arm64 / slm-arm64 / *-arm64-<sha>
+#
+# 首次使用前：去 GitHub → 右上頭像 → Packages → 將 docuocr-enterprise 設為 Public，
+# 否則 NAS 未登入 pull 唔到（或喺 NAS 上執行 `docker login ghcr.io` 用 PAT 登入）。
+name: Build ARM64 image
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "Dockerfile"
+      - "requirements*.txt"
+      - "main.py"
+      - "core/**"
+      - "static/**"
+      - "lexicons/**"
+      - ".github/workflows/build-arm64.yml"
+  release:
+    types: [published]
+  workflow_dispatch:  # 手動觸發：Actions 分頁 → Run workflow
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository_owner }}/docuocr-enterprise
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    timeout-minutes: 360
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - variant: base
+            install_slm: "false"
+          - variant: slm
+            install_slm: "true"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU（ARM64 模擬）
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # 如想同時推送去 Docker Hub，解開以下步驟，
+      # 並喺 repo Settings → Secrets 新增 DOCKERHUB_USERNAME / DOCKERHUB_TOKEN：
+      # - name: Log in to Docker Hub
+      #   uses: docker/login-action@v3
+      #   with:
+      #     username: ${{ secrets.DOCKERHUB_USERNAME }}
+      #     password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=latest,enable=${{ matrix.variant == 'base' }}
+            type=raw,value=slm,enable=${{ matrix.variant == 'slm' }}
+            type=raw,value=${{ matrix.variant }}-arm64
+            type=sha,prefix=${{ matrix.variant }}-arm64-,format=short
+
+      - name: Build and push (${{ matrix.variant }}, linux/arm64)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/arm64
+          push: true
+          build-args: |
+            INSTALL_SLM=${{ matrix.install_slm }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=docuocr-${{ matrix.variant }}-arm64
+          cache-to: type=gha,mode=max,scope=docuocr-${{ matrix.variant }}-arm64
